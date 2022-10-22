@@ -1,3 +1,4 @@
+import itertools
 from collections import defaultdict
 from typing import Any, DefaultDict, Iterable, Optional, Set
 
@@ -13,6 +14,20 @@ class Rule():
     rhs: Pattern
 
 
+def _copy_node_with_new_inputes(old_node: Node, new_inputs: Iterable[Node]) -> Node:
+    if isinstance(old_node, ConstantNode):
+        assert(len(new_inputs) == 0)
+        return old_node
+    elif isinstance(old_node, VariableNode):
+        assert(len(new_inputs) == 0)
+        return old_node
+    elif isinstance(old_node, BinaryNode):
+        assert(len(new_inputs) == 2)
+        new_lhs, new_rhs = new_inputs
+        return BinaryNode(new_lhs, new_rhs, old_node.op())
+    raise RuntimeError("Invalid node type: ", str(type(old_node)))
+
+
 def _get_unique_nodes_in_tree(root: Node) -> Set[Node]:
     unique_nodes = set()
     def add_and_recur(node: Node):
@@ -26,42 +41,62 @@ def _get_unique_nodes_in_tree(root: Node) -> Set[Node]:
 
 class EGraph():
     # TODO speed things up (e.g., via union-find)
+    # TODO should have ENode, whose inputs are ENode, and contains a set of
+    # equivalent Node. How do we cleanly augment `Node` into `ENode` w/o
+    # duplicated code (like Pattern and Node)?
     _rules: Tuple[Rule]
-    _nodes: Set[Node]
     _vn_to_nodes: DefaultDict[int, Set[Node]]
     _node_numberer: NodeNumberer
 
     def __init__(self, rules: Iterable[Rule], root: Node):
         self._rules = tuple(rules)
         self._node_numberer = NodeNumberer()
-        self._nodes = set()
         self._vn_to_nodes = defaultdict(set)
-        unique_nodes = _get_unique_nodes_in_tree(root)
-        for node in unique_nodes:
+        for node in _get_unique_nodes_in_tree(root):
             self._add_single_node(node)
         # TODO multiple iterations of interleaved rule application
         for rule in rules:
             # TODO bi-directional rewrite
-            matcher = Matcher(rule.lhs)
-            rewrite_results = []
-            for node in self._nodes:
-                opt_node = self._rewrite(matcher, rule.rhs, node)
-                if opt_node is not None:
-                    res = (node, opt_node)
-                    rewrite_results.append(res)
-            for old_node, new_node in rewrite_results:
-                self._add_single_node(new_node)
-                self._merge_nodes(old_node, new_node)
+            self._apply_rule_to_tree(rule, root)
 
     def get_equivalent_nodes(self, node: Node) -> Iterable[Node]:
         vn = self._node_numberer.get_number(node)
         return self._vn_to_nodes[vn]
 
-    def _add_single_node(self, node: Node):
+    def get_all_nodes(self) -> Set[Node]:
+        all_nodes = set()
+        for _, equivalent_nodes in self._vn_to_nodes.items():
+            all_nodes.update(equivalent_nodes)
+        return all_nodes
+
+    def _apply_rule_to_tree(self, rule: Rule, root: Node):
+        matcher = Matcher(rule.lhs)
+        rewrite_results = []
+        applied_nodes = set()
+        def apply_and_recur(node: Node):
+            applied_nodes.add(node)
+            unique_equivalent_inputs : List[Set[Node]] = []
+            # TODO god this is slow, we need ENode
+            for input_node in node.inputs():
+                if input_node not in applied_nodes:
+                    apply_and_recur(input_node)
+                    unique_equivalent_inputs.append(self.get_equivalent_nodes(input_node))
+            for inputs_combo in itertools.product(*unique_equivalent_inputs):
+                new_node = _copy_node_with_new_inputes(node, inputs_combo)
+                if self._add_single_node(new_node):
+                    self._merge_nodes(node, new_node)
+            opt_new_node = self._rewrite(matcher, rule.rhs, node)
+            if opt_new_node is not None:
+                self._add_single_node(opt_new_node)
+                self._merge_nodes(node, opt_new_node)
+        apply_and_recur(root)
+
+    def _add_single_node(self, node: Node) -> bool:
         vn = self._node_numberer.get_number(node)
         if vn not in self._vn_to_nodes:
             self._vn_to_nodes[vn].add(node)
-            self._nodes.add(node)
+            return True
+        return False
 
     def _merge_nodes(self, old_node: Node, new_node: Node):
         old_vn = self._node_numberer.get_number(old_node)
@@ -116,9 +151,11 @@ if __name__ == '__main__':
     x = VariableNode("x")
     expr = x * 2 / 2
     egraph = EGraph(rules, expr)
-    print("\n-------nodes in egraph-------")
-    for node in egraph._nodes:
+
+    print("\n-------all nodes in egraph-------")
+    for node in egraph.get_all_nodes():
         print(node)
+
     print("\n-------nodes equivalent to expr-------")
     for node in egraph.get_equivalent_nodes(expr):
         print(node)
