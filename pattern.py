@@ -94,6 +94,8 @@ def _lshift_maker(lhs: Pattern, rhs: Pattern) -> BinaryPattern:
 
 
 def _node_converter(value: any) -> Pattern:
+    if isinstance(value, Pattern):
+        return value
     if isinstance(value, int):
         return ConstantPattern(int(value))
     raise RuntimeError("Can't convert to node: " + str(type(value)))

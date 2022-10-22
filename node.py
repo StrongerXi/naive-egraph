@@ -6,7 +6,7 @@ from enum import Enum, auto
 from typing import Tuple
 
 
-@dataclass()
+@dataclass(eq=False)
 class Node(abc.ABC):
     inputs_: Tuple[Node]
 
@@ -37,7 +37,7 @@ class Node(abc.ABC):
         return _lshift_maker(self, _node_converter(other))
 
 
-@dataclass()
+@dataclass(eq=False)
 class ConstantNode(Node):
     value_: int
 
@@ -47,7 +47,7 @@ class ConstantNode(Node):
         self.value_ = value
 
 
-@dataclass()
+@dataclass(eq=False)
 class VariableNode(Node):
     name_: str
 
@@ -66,7 +66,7 @@ class BinaryOp(Enum):
     LSHIFT = auto()
 
 
-@dataclass()
+@dataclass(eq=False)
 class BinaryNode(Node):
     op_: BinaryOp
 
@@ -107,6 +107,8 @@ def _lshift_maker(lhs: Node, rhs: Node) -> BinaryNode:
 
 
 def _node_converter(value: any) -> Node:
+    if isinstance(value, Node):
+        return value
     if isinstance(value, int):
         return ConstantNode(int(value))
     raise RuntimeError("Can't convert to node: " + str(type(value)))
@@ -114,7 +116,7 @@ def _node_converter(value: any) -> Node:
 
 if __name__ == '__main__':
     x = VariableNode("x")
-    num42 = ConstantNode(42)
+    num42 = ConstantNode()
     print(x)
     print(num42)
     print(x << 42)
