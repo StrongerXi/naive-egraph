@@ -10,13 +10,13 @@ from node import *
 
 @dataclass()
 class Pattern(abc.ABC):
-    inputs_: Tuple[Pattern]
+    _inputs: Tuple[Pattern]
 
     def __init__(self, inputs):
-        self.inputs_ = inputs
+        self._inputs = inputs
 
     def inputs(self) -> Tuple[Pattern]:
-        return self.inputs_
+        return self._inputs
 
     # NOTE the overloaded operators uses functions declared later because we
     # must reference subclass nodes like `BinaryPattern`
@@ -29,7 +29,7 @@ class Pattern(abc.ABC):
     def __mul__(self, other: Pattern) -> Pattern:
         return _mul_maker(self, _node_converter(other))
 
-    def __div__(self, other: Pattern) -> Pattern:
+    def __truediv__(self, other: Pattern) -> Pattern:
         return _div_maker(self, _node_converter(other))
 
     def __rshift__(self, other: Pattern) -> Pattern:
@@ -41,32 +41,47 @@ class Pattern(abc.ABC):
 
 @dataclass()
 class ConstantPattern(Pattern):
-    value_: int
+    _value: int
 
     def __init__(self, value):
         inputs = ()
         super().__init__(inputs)
-        self.value_ = value
+        self._value = value
+
+    def value(self) -> int:
+        return self._value
 
 
 @dataclass()
 class VariablePattern(Pattern):
-    name_: str
+    _name: str
 
     def __init__(self, name):
         inputs = ()
         super().__init__(inputs)
-        self.name_ = name
+        self._name = name
+
+    def name(self) -> str:
+        return self._name
 
 
 @dataclass()
 class BinaryPattern(Pattern):
-    op_: BinaryOp
+    _op: BinaryOp
 
     def __init__(self, lhs: Pattern, rhs: Pattern, op: BinaryOp):
         inputs = (lhs, rhs)
         super().__init__(inputs)
-        self.op_ = op
+        self._op = op
+
+    def op(self) -> BinaryOp:
+        return self._op
+
+    def lhs(self) -> Pattern:
+        return self._inputs[0]
+
+    def rhs(self) -> Pattern:
+        return self._inputs[1]
 
 
 def _add_maker(lhs: Pattern, rhs: Pattern) -> BinaryPattern:

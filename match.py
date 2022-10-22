@@ -6,11 +6,11 @@ from pattern import *
 
 class Matcher():
     _pattern: Pattern
-    _pat_to_node_varname: Dict[str, VariableNode]
+    _pat_varname_to_node: Dict[str, VariableNode]
 
     def __init__(self, pattern):
         self._pattern = pattern
-        self._pat_to_node_varname = {}
+        self._pat_varname_to_node = {}
 
     def match(self, root: Node) -> bool:
         pat_to_node_varname_ = {}
@@ -36,18 +36,19 @@ class Matcher():
         raise RuntimeError("Invalid pattern type: ", str(type(pattern)))
 
     def _match_constant(self, pattern: ConstantPattern, node: Node) -> bool:
-        return isinstance(node, ConstantNode) and node.value_ == pattern.value_
+        return isinstance(node, ConstantNode) and node.value() == pattern.value()
 
     def _match_variable(self, pattern: VariablePattern, node: Node) -> bool:
         if not isinstance(node, VariableNode):
             return False
         # bind upon first encounter
-        if pattern.name_ not in self._pat_to_node_varname:
-            self._pat_to_node_varname[pattern.name_] = node
-        return self._pat_to_node_varname[pattern.name_] == node
+        pat_name = pattern.name()
+        if pat_name not in self._pat_varname_to_node:
+            self._pat_varname_to_node[pat_name] = node
+        return self._pat_varname_to_node[pat_name] == node
 
     def _match_binary(self, pattern: BinaryPattern, node: Node) -> bool:
-        return isinstance(node, BinaryNode) and node.op_ == pattern.op_
+        return isinstance(node, BinaryNode) and node.op() == pattern.op()
 
 
 if __name__ == '__main__':

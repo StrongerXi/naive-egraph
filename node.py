@@ -8,13 +8,13 @@ from typing import Tuple
 
 @dataclass(eq=False)
 class Node(abc.ABC):
-    inputs_: Tuple[Node]
+    _inputs: Tuple[Node]
 
     def __init__(self, inputs):
-        self.inputs_ = inputs
+        self._inputs = inputs
 
     def inputs(self) -> Tuple[Node]:
-        return self.inputs_
+        return self._inputs
 
     # NOTE the overloaded operators uses functions declared later because we
     # must reference subclass nodes like `BinaryNode`
@@ -27,7 +27,7 @@ class Node(abc.ABC):
     def __mul__(self, other: Node) -> Node:
         return _mul_maker(self, _node_converter(other))
 
-    def __div__(self, other: Node) -> Node:
+    def __truediv__(self, other: Node) -> Node:
         return _div_maker(self, _node_converter(other))
 
     def __rshift__(self, other: Node) -> Node:
@@ -39,22 +39,28 @@ class Node(abc.ABC):
 
 @dataclass(eq=False)
 class ConstantNode(Node):
-    value_: int
+    _value: int
 
     def __init__(self, value):
         inputs = ()
         super().__init__(inputs)
-        self.value_ = value
+        self._value = value
+
+    def value(self) -> int:
+        return self._value
 
 
 @dataclass(eq=False)
 class VariableNode(Node):
-    name_: str
+    _name: str
 
     def __init__(self, name):
         inputs = ()
         super().__init__(inputs)
-        self.name_ = name
+        self._name = name
+
+    def name(self) -> str:
+        return self._name
 
 
 class BinaryOp(Enum):
@@ -68,18 +74,21 @@ class BinaryOp(Enum):
 
 @dataclass(eq=False)
 class BinaryNode(Node):
-    op_: BinaryOp
+    _op: BinaryOp
 
     def __init__(self, lhs: Node, rhs: Node, op: BinaryOp):
         inputs = (lhs, rhs)
         super().__init__(inputs)
-        self.op_ = op
+        self._op = op
+
+    def op(self) -> BinaryOp:
+        return self._op
 
     def lhs(self) -> Node:
-        return self.inputs_[0]
+        return self._inputs[0]
 
     def rhs(self) -> Node:
-        return self.inputs_[1]
+        return self._inputs[1]
 
 
 def _add_maker(lhs: Node, rhs: Node) -> BinaryNode:
@@ -116,7 +125,7 @@ def _node_converter(value: any) -> Node:
 
 if __name__ == '__main__':
     x = VariableNode("x")
-    num42 = ConstantNode()
+    num42 = ConstantNode(42)
     print(x)
     print(num42)
     print(x << 42)
