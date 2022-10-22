@@ -1,7 +1,12 @@
-from typing import Dict
+from typing import Dict, Optional
 
 from node import *
 from pattern import *
+
+
+@dataclass(frozen=True)
+class MatchResult:
+    pat_varname_to_node: Dict[str, VariableNode]
 
 
 class Matcher():
@@ -12,9 +17,11 @@ class Matcher():
         self._pattern = pattern
         self._pat_varname_to_node = {}
 
-    def match(self, root: Node) -> bool:
-        pat_to_node_varname_ = {}
-        return self._match(self._pattern, root)
+    def match(self, root: Node) -> Optional[MatchResult]:
+        is_match = self._match(self._pattern, root)
+        res = MatchResult(self._pat_varname_to_node) if is_match else None
+        self._pat_varname_to_node = {}
+        return res
 
     def _match(self, pattern: Pattern, root: Node) -> bool:
         if not self._match_single(pattern, root):
