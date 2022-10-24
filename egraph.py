@@ -14,7 +14,7 @@ class Rule():
     rhs: Pattern
 
 
-def _copy_node_with_new_inputes(old_node: Node, new_inputs: Iterable[Node]) -> Node:
+def _copy_node_with_new_inputs(old_node: Node, new_inputs: Iterable[Node]) -> Node:
     if isinstance(old_node, ConstantNode):
         assert(len(new_inputs) == 0)
         return old_node
@@ -40,10 +40,8 @@ def _get_unique_nodes_in_tree(root: Node) -> Set[Node]:
 
 
 class EGraph():
-    # TODO speed things up (e.g., via union-find)
-    # TODO should have ENode, whose inputs are ENode, and contains a set of
-    # equivalent Node. How do we cleanly augment `Node` into `ENode` w/o
-    # duplicated code (like Pattern and Node)?
+    # TODO speed things up (this is tricky, need to think more, I actually don't
+    # see how union find will help us...)
     _rules: Tuple[Rule]
     _vn_to_nodes: DefaultDict[int, Set[Node]]
     _node_numberer: NodeNumberer
@@ -76,14 +74,16 @@ class EGraph():
         def apply_and_recur(node: Node):
             applied_nodes.add(node)
             unique_equivalent_inputs : List[Set[Node]] = []
-            # TODO god this is slow, we need ENode
+            # TODO god this is slow, I think this is where the paper's lazy
+            # update of hash-consing shines?
             for input_node in node.inputs():
                 if input_node not in applied_nodes:
                     apply_and_recur(input_node)
                     unique_equivalent_inputs.append(self.get_equivalent_nodes(input_node))
             for inputs_combo in itertools.product(*unique_equivalent_inputs):
-                new_node = _copy_node_with_new_inputes(node, inputs_combo)
+                new_node = _copy_node_with_new_inputs(node, inputs_combo)
                 if self._add_single_node(new_node):
+                    # TODO can/should we delay this merge to outside for loop?
                     self._merge_nodes(node, new_node)
             opt_new_node = self._rewrite(matcher, rule.rhs, node)
             if opt_new_node is not None:
@@ -101,11 +101,16 @@ class EGraph():
     def _merge_nodes(self, old_node: Node, new_node: Node):
         old_vn = self._node_numberer.get_number(old_node)
         new_vn = self._node_numberer.get_number(new_node)
-        if old_vn != new_vn:
-            self._vn_to_nodes[new_vn].update(self._vn_to_nodes[old_vn])
-            self._vn_to_nodes[old_vn] = self._vn_to_nodes[new_vn]
+        from_enodes = self._vn_to_nodes[old_vn]
+        to_enodes = self._vn_to_nodes[new_vn]
+        if len(from_enodes) > len(to_enodes):
+            from_enodes, to_enodes = to_enodes, from_enodes
+        to_enodes.update(from_enodes)
+        for node in from_enodes:
+            vn = self._node_numberer.get_number(node)
+            self._vn_to_nodes[vn] = to_enodes
 
-    def _rewrite(self, matcher: Matcher, new_pattern: Pattern, old_node: Node) -> Optional[Tuple[Node, Node]]:
+    def _rewrite(self, matcher: Matcher, new_pattern: Pattern, old_node: Node) -> Optional[Node]:
         opt_res = matcher.match(old_node)
         if opt_res is not None:
             return self._generate_node(opt_res, new_pattern)
