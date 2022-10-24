@@ -108,10 +108,10 @@ class EGraph():
     def _merge_nodes(self, old_node: Node, new_node: Node):
         old_vn = self._node_numberer.get_number(old_node)
         new_vn = self._node_numberer.get_number(new_node)
-        if old_vn == new_vn:
-            return
         from_enodes = self._vn_to_enodes[old_vn]
         to_enodes = self._vn_to_enodes[new_vn]
+        if from_enodes is to_enodes: # already equivalent classes
+            return
         if len(from_enodes) > len(to_enodes):
             from_enodes, to_enodes = to_enodes, from_enodes
         to_enodes.update(from_enodes)
@@ -158,7 +158,7 @@ if __name__ == '__main__':
         return Rule(lhs, rhs)
 
     rules = [
-        #get_mul_to_shift_rule(),
+        get_mul_to_shift_rule(),
         get_mul_div_2_cancel_rule(),
     ]
 
