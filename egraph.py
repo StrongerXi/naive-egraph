@@ -80,6 +80,10 @@ class EGraph():
             # rewrite any node and must recursively update its parents. Need to
             # think more.
             for input_node in node.inputs():
+                # TODO what if we found input_node to be equivalent to some
+                # nested input of this node? Then the users of that nested input
+                # node might need update. I think this is why the paper uses a
+                # worklist algorithm (we need to find a fixpoint)
                 apply_and_recur(input_node)
                 unique_equivalent_inputs.append(self.get_equivalent_nodes(input_node))
             for inputs_combo in itertools.product(*unique_equivalent_inputs):
