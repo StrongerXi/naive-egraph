@@ -8,7 +8,9 @@ class NodeNumberer():
     Value Numbering applied to Node
     """
     _next_vn: int
-    # serves as a cache
+    # TODO serves as a cache, make it a LRU cache to avoid memory explosion,
+    # because we create lots of intermediate nodes, but cache is meant for nodes
+    # reused in user's original input graph
     _node_to_vn: Dict[Node, int]
     # TODO a canonical form class so we can do `Dict[CanonicalForm, int]`
     _constant_to_vn: Dict[int, int]
